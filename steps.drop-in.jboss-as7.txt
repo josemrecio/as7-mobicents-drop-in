@@ -1,0 +1,49 @@
+mkdir $INSTALL_DIR_BASE
+
+# Get jboss-as code and configure git options
+#
+git clone git://github.com/jbossas/jboss-as.git
+cd jboss-as
+git fetch
+git remote add jboss-as-upstream git://github.com/jbossas/jboss-as.git
+git config branch.master.mergeoptions --ff-only
+
+# Rebuild AS7
+#
+mvn clean install
+
+# Create a copy of AS7 target (so that original is unmodified, in case is needed)
+#
+cp -pr build/target/jboss-as-7.1.1.Final-SNAPSHOT/ $INSTALL_DIR_BASE/jboss-as-7.1.1.Final-SNAPSHOT
+
+# Rebuild sip-servlets-as7 project
+# (check first dependencies versions in pom.xml are in synch with AS7 current pom.xml !)
+in sip-servlets-as7 -> mvn clean install
+
+# Rebuild mobicents drop-in: org.mobicents.as7 subsystem and org.mobicents modules
+# (check first dependencies versions in pom.xml are in synch with AS7 current pom.xml !)
+pushd $GIT_BASE/jboss-as.drop-in/as7-mobicents-drop-in
+pushd jboss-as-mobicents/
+mvn clean install
+popd
+pushd build-mobicents-modules/
+mvn clean package
+cp -pr target/jboss-as-7.1.1.Final-SNAPSHOT/modules/org/mobicents/ $INSTALL_DIR_BASE/jboss-as-7.1.1.Final-SNAPSHOT/modules/org/
+popd
+popd
+
+# Create standalone-sip.xml file
+#
+cd $INSTALL_DIR_BASE/jboss-as-7.1.1.Final-SNAPSHOT/
+cp standalone/configuration/standalone.xml standalone/configuration/standalone-sip.xml
+patch -p0 --verbose < $GIT_BASE/jboss-as.drop-in/as7-mobicents-drop-in/patches/patch.standalone.sip.dropin.xml
+
+# Configure jboss-as-web module
+#
+cd $INSTALL_DIR_BASE/jboss-as-7.1.1.Final-SNAPSHOT/
+patch -p0 --verbose < $GIT_BASE/jboss-as.drop-in/as7-mobicents-drop-in/patches/patch.jboss-as-web.module.xml
+
+# Run AS7
+#
+./bin/standalone.sh -c standalone-sip.xml -Djavax.servlet.sip.dar=file:///tmp/mobicents-dar.properties
+
