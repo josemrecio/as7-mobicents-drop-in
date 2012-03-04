@@ -165,6 +165,21 @@ public class SipJBossContextConfig extends /*JBossContextConfig*/ ContextConfig 
                 convergedContext.setDisplayName(((DisplayNameImpl) displayNamesImpl.iterator().next()).getDisplayName());
             }
         }
+
+        // Distributable
+        if (convergedMetaData.getDistributable() != null) {
+            // TODO
+            throw new SipDeploymentException("Distributable not supported yet");
+        }
+
+        // sip context params
+        List<? extends ParamValueMetaData> sipContextParams = convergedMetaData.getSipContextParams();
+        if (sipContextParams != null) {
+            for (ParamValueMetaData param : sipContextParams) {
+                convergedContext.addParameter(param.getParamName(), param.getParamValue());
+            }
+        }
+
         // app name
         if (convergedMetaData.getApplicationName() == null) {
             throw new SipDeploymentException(
