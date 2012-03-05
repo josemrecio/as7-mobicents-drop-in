@@ -61,7 +61,6 @@ import org.jboss.metadata.sip.spec.SipServletsMetaData;
 import org.jboss.metadata.web.spec.ListenerMetaData;
 import org.jboss.metadata.web.spec.ServletMetaData;
 import org.jboss.vfs.VirtualFile;
-import static org.jboss.as.web.WebMessages.MESSAGES;
 
 /**
  * Web annotation deployment processor.
@@ -125,8 +124,7 @@ public class SipAnnotationDeploymentProcessor implements DeploymentUnitProcessor
      * @param classLoader the module classloader
      * @throws DeploymentUnitProcessingException
      */
-    protected SipMetaData processAnnotations(Index index)
-    throws DeploymentUnitProcessingException {
+    protected SipMetaData processAnnotations(Index index) throws DeploymentUnitProcessingException {
         Sip11MetaData sipMetaData = new Sip11MetaData();
         System.err.println("processAnnotations()");
         // @SipListener

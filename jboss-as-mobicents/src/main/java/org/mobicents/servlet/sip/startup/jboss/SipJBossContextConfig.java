@@ -27,6 +27,7 @@ import java.util.List;
 
 import org.apache.catalina.core.StandardWrapper;
 import org.apache.catalina.startup.ContextConfig;
+import org.jboss.as.server.deployment.DeploymentUnit;
 import org.jboss.logging.Logger;
 import org.jboss.metadata.javaee.spec.DescriptionGroupMetaData;
 import org.jboss.metadata.javaee.spec.DescriptionImpl;
@@ -55,14 +56,9 @@ import org.jboss.metadata.sip.spec.SipSecurityConstraintMetaData;
 import org.jboss.metadata.sip.spec.SipServletMappingMetaData;
 import org.jboss.metadata.sip.spec.SipServletSelectionMetaData;
 import org.jboss.metadata.sip.spec.SubdomainOfMetaData;
-//import org.jboss.metadata.web.jboss.JBossSipServletsMetaData;
-//import org.jboss.metadata.web.jboss.JBossServletMetaData;
-import org.jboss.metadata.web.jboss.JBossWebMetaData;
 import org.jboss.metadata.web.spec.ListenerMetaData;
 import org.jboss.metadata.web.spec.ServletMetaData;
 import org.jboss.metadata.web.spec.TransportGuaranteeType;
-import org.jboss.as.server.deployment.DeploymentUnit;
-//import org.jboss.as.web.deployment.JBossContextConfig;
 import org.mobicents.servlet.sip.catalina.CatalinaSipContext;
 import org.mobicents.servlet.sip.catalina.SipDeploymentException;
 import org.mobicents.servlet.sip.catalina.SipLoginConfig;
@@ -76,9 +72,7 @@ import org.mobicents.servlet.sip.catalina.rules.ExistsRule;
 import org.mobicents.servlet.sip.catalina.rules.NotRule;
 import org.mobicents.servlet.sip.catalina.rules.OrRule;
 import org.mobicents.servlet.sip.catalina.rules.SubdomainRule;
-import org.mobicents.servlet.sip.core.SipContext;
 import org.mobicents.servlet.sip.core.descriptor.MatchingRule;
-import org.mobicents.servlet.sip.startup.SipStandardContext;
 import org.mobicents.servlet.sip.startup.loading.SipServletMapping;
 
 /**

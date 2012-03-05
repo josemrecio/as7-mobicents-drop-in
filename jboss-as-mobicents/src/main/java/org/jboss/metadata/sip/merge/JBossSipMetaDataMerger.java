@@ -37,6 +37,9 @@ import org.jboss.metadata.sip.spec.SipServletsMetaData;
  *
  * @author Scott.Stark@jboss.org
  * @version $Revision: 84989 $
+ *
+ * @author josemrecio
+ *
  */
 public class JBossSipMetaDataMerger extends NamedModuleImplMerger {
 

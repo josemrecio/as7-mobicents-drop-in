@@ -34,6 +34,7 @@ import org.jboss.metadata.sip.spec.SipMetaData;
  * in case it finds a SIP deployment.
  *
  * @author Emanuel Muckenhuber
+ * @author josemrecio@gmail.com
  */
 public class SipContextFactoryDeploymentProcessor implements DeploymentUnitProcessor {
 
@@ -49,6 +50,7 @@ public class SipContextFactoryDeploymentProcessor implements DeploymentUnitProce
             // In case there is no metadata attached, it means this is not a sip deployment, so we can safely ignore it!
             return;
         }
+        System.err.println(deploymentUnit.getName() + " sip context factory installed");
         // Just attach the context factory, the web subsystem will pick it up
         final SIPContextFactory contextFactory = new SIPContextFactory();
         deploymentUnit.putAttachment(WebContextFactory.ATTACHMENT, contextFactory);

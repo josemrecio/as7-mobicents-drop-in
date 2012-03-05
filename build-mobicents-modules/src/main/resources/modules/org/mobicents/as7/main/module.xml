@@ -49,5 +49,8 @@
         <module name="org.jboss.as.ee"/>
         <module name="org.jboss.vfs"/>
         <module name="org.apache.log4j"/>
+        <module name="javax.annotation.api"/>
+        <module name="org.jboss.modules"/>
+        <module name="org.jboss.as.naming"/>
     </dependencies>
 </module>

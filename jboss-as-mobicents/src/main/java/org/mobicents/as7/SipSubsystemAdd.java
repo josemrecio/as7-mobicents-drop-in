@@ -37,6 +37,7 @@ import org.jboss.as.server.AbstractDeploymentChainStep;
 import org.jboss.as.server.DeploymentProcessorTarget;
 import org.jboss.as.server.deployment.Phase;
 import org.jboss.as.controller.services.path.AbstractPathService;
+import org.jboss.as.ee.component.deployers.ModuleJndiBindingProcessor;
 import org.jboss.dmr.ModelNode;
 import org.jboss.msc.service.ServiceBuilder.DependencyType;
 import org.jboss.msc.service.ServiceController;
@@ -45,6 +46,7 @@ import org.jboss.msc.service.ServiceName;
 import org.mobicents.as7.deployment.AttachSipServerServiceProcessor;
 import org.mobicents.as7.deployment.SipAnnotationDeploymentProcessor;
 import org.mobicents.as7.deployment.SipContextFactoryDeploymentProcessor;
+import org.mobicents.as7.deployment.SipJndiBindingProcessor;
 import org.mobicents.as7.deployment.SipParsingDeploymentProcessor;
 
 /**
@@ -98,10 +100,16 @@ class SipSubsystemAdd extends AbstractBoottimeAddStepHandler implements Descript
         context.addStep(new AbstractDeploymentChainStep() {
             @Override
             protected void execute(DeploymentProcessorTarget processorTarget) {
+                // sip.xml parsing
                 processorTarget.addDeploymentProcessor(Phase.PARSE, PARSE_SIP_DEPLOYMENT_PRIORITY, new SipParsingDeploymentProcessor());
+                // handles annotations
                 processorTarget.addDeploymentProcessor(Phase.PARSE, SIP_ANNOTATION_DEPLOYMENT_PRIORITY, new SipAnnotationDeploymentProcessor());
+                // attach SipServer to deployment unit (so we can recover it from the sip context)
                 processorTarget.addDeploymentProcessor(Phase.POST_MODULE, SIP_CONTEXT_FACTORY_DEPLOYMENT_PRIORITY -1 , new AttachSipServerServiceProcessor(service));
+                // plugs our context factory into web subsystem deployers
                 processorTarget.addDeploymentProcessor(Phase.POST_MODULE, SIP_CONTEXT_FACTORY_DEPLOYMENT_PRIORITY, SipContextFactoryDeploymentProcessor.INSTANCE);
+                // binds sip resources to JNDI - Before POST_MODULE_INJECTION_ANNOTATION !!!
+                processorTarget.addDeploymentProcessor(Phase.POST_MODULE, Phase.POST_MODULE_INJECTION_ANNOTATION - 1, new SipJndiBindingProcessor());
 
 //                // Add the SIP specific deployment processor
 //                processorTarget.addDeploymentProcessor(Phase.PARSE, DEPLOYMENT_PROCESS_PRIORITY, SipMetaDataDeploymentProcessor.INSTANCE);

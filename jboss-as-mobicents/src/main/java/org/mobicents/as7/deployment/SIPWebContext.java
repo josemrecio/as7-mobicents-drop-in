@@ -24,10 +24,10 @@ package org.mobicents.as7.deployment;
 
 import java.util.ArrayList;
 
-import org.apache.catalina.Container;
-import org.apache.catalina.Engine;
 import org.apache.catalina.LifecycleException;
-import org.apache.catalina.Service;
+import org.jboss.as.ee.structure.DeploymentType;
+import org.jboss.as.ee.structure.DeploymentTypeMarker;
+import org.jboss.as.server.deployment.AttachmentKey;
 import org.jboss.as.server.deployment.DeploymentUnit;
 import org.jboss.logging.Logger;
 import org.jboss.metadata.merge.web.jboss.JBossWebMetaDataMerger;
@@ -50,8 +50,11 @@ import org.mobicents.servlet.sip.startup.jboss.SipJBossContextConfig;
  *
  *
  * @author Emanuel Muckenhuber
+ * @author josemrecio@gmail.com
  */
 public class SIPWebContext extends SipStandardContext {
+
+    static AttachmentKey<SIPWebContext> ATTACHMENT = AttachmentKey.create(SIPWebContext.class);
 
     private static final Logger log = Logger.getLogger(SIPWebContext.class);
 
@@ -62,6 +65,13 @@ public class SIPWebContext extends SipStandardContext {
         super();
         this.deploymentUnit = deploymentUnit;
         sipJBossContextConfig = createContextConfig(this, deploymentUnit);
+        if (DeploymentTypeMarker.isType(DeploymentType.EAR, this.deploymentUnit.getParent())) {
+            System.err.println("Attaching SIPWebContext " + this + " to " + deploymentUnit.getParent().getName());
+            deploymentUnit.getParent().putAttachment(SIPWebContext.ATTACHMENT, this);
+        }
+    }
+
+    public void postProcessContext(DeploymentUnit deploymentUnit) {
     }
 
     @Override
@@ -78,7 +88,6 @@ public class SIPWebContext extends SipStandardContext {
         log.infof("Starting sip web context for deployment %s", deploymentUnit.getName());
         SipMetaData sipMetaData = deploymentUnit.getAttachment(SipMetaData.ATTACHMENT_KEY);
         SipAnnotationMetaData sipAnnotationMetaData = deploymentUnit.getAttachment(SipAnnotationMetaData.ATTACHMENT_KEY);
-        SipServer sipServer = deploymentUnit.getAttachment(SipServer.ATTACHMENT_KEY);
 
         JBossWebMetaData mergedMetaData = null;
         mergedMetaData = new JBossConvergedSipMetaData();
@@ -185,9 +194,8 @@ public class SIPWebContext extends SipStandardContext {
             System.err.println("</After clumsy augmentation>");
             JBossSipMetaDataMerger.merge((JBossConvergedSipMetaData)mergedMetaData, null, sipMetaData);
         }
-
-
     }
+
     private void processMetaData(JBossWebMetaData mergedMetaData, SipMetaData sipMetaData) {
         //processJBossWebMetaData(sharedJBossWebMetaData);
         //processWebMetaData(sharedJBossWebMetaData);

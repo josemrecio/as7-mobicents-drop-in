@@ -35,7 +35,6 @@ import org.jboss.as.server.deployment.DeploymentPhaseContext;
 import org.jboss.as.server.deployment.DeploymentUnit;
 import org.jboss.as.server.deployment.DeploymentUnitProcessingException;
 import org.jboss.as.server.deployment.DeploymentUnitProcessor;
-import org.jboss.as.server.deployment.module.ResourceRoot;
 import org.jboss.metadata.parser.util.MetaDataElementParser;
 import org.jboss.metadata.sip.parser.SipMetaDataParser;
 import org.jboss.metadata.sip.spec.SipMetaData;
@@ -44,6 +43,7 @@ import org.jboss.vfs.VirtualFile;
 /**
  * @author Jean-Frederic Clere
  * @author Thomas.Diesler@jboss.com
+ * @author josemrecio@gmail.com
  */
 public class SipParsingDeploymentProcessor implements DeploymentUnitProcessor {
 
@@ -59,7 +59,7 @@ public class SipParsingDeploymentProcessor implements DeploymentUnitProcessor {
     @Override
     public void deploy(DeploymentPhaseContext phaseContext) throws DeploymentUnitProcessingException {
         final DeploymentUnit deploymentUnit = phaseContext.getDeploymentUnit();
-        final ResourceRoot deploymentRoot = deploymentUnit.getAttachment(Attachments.DEPLOYMENT_ROOT);
+        final VirtualFile rootFile = deploymentUnit.getAttachment(Attachments.DEPLOYMENT_ROOT).getRoot();
         // TODO: I think this does not apply to sip.xml
         // final VirtualFile alternateDescriptor =
         // deploymentRoot.getAttachment(org.jboss.as.ee.structure.Attachments.ALTERNATE_SIP_DEPLOYMENT_DESCRIPTOR);
@@ -71,35 +71,44 @@ public class SipParsingDeploymentProcessor implements DeploymentUnitProcessor {
         // sipXml = deploymentRoot.getRoot().getChild(SIP_XML);
         // }
 
-        if (!DeploymentTypeMarker.isType(DeploymentType.WAR, deploymentUnit)) {
+        VirtualFile sipXml = null;
+        /*if (DeploymentTypeMarker.isType(DeploymentType.EAR, deploymentUnit)) {
+            List<VirtualFile> children = rootFile.getChildren();
+            for (VirtualFile child: children) {
+                if (child.getChild(SIP_XML).exists()) {
+                    sipXml = child.getChild(SIP_XML);
+                }
+            }
+        }
+        else */if (DeploymentTypeMarker.isType(DeploymentType.WAR, deploymentUnit)) {
+            sipXml = rootFile.getChild(SIP_XML);
+        }
+        if ((sipXml == null) || !sipXml.exists()) {
             return;
         }
 
-        final VirtualFile sipXml = deploymentRoot.getRoot().getChild(SIP_XML);
-        if (sipXml.exists()) {
-            InputStream is = null;
-            try {
-                is = sipXml.openStream();
-                final XMLInputFactory inputFactory = XMLInputFactory.newInstance();
+        InputStream is = null;
+        try {
+            is = sipXml.openStream();
+            final XMLInputFactory inputFactory = XMLInputFactory.newInstance();
 
-                MetaDataElementParser.DTDInfo dtdInfo = new MetaDataElementParser.DTDInfo();
-                inputFactory.setXMLResolver(dtdInfo);
-                final XMLStreamReader xmlReader = inputFactory.createXMLStreamReader(is);
-                SipMetaData sipMetaData = SipMetaDataParser.parse(xmlReader, dtdInfo);
-                deploymentUnit.putAttachment(SipMetaData.ATTACHMENT_KEY, sipMetaData);
-            } catch (XMLStreamException e) {
-                throw new DeploymentUnitProcessingException("Failed to parse " + sipXml + " at ["
-                        + e.getLocation().getLineNumber() + "," + e.getLocation().getColumnNumber() + "]");
-            } catch (IOException e) {
-                throw new DeploymentUnitProcessingException("Failed to parse " + sipXml, e);
-            } finally {
-                try {
-                    if (is != null) {
-                        is.close();
-                    }
-                } catch (IOException e) {
-                    // Ignore
+            MetaDataElementParser.DTDInfo dtdInfo = new MetaDataElementParser.DTDInfo();
+            inputFactory.setXMLResolver(dtdInfo);
+            final XMLStreamReader xmlReader = inputFactory.createXMLStreamReader(is);
+            SipMetaData sipMetaData = SipMetaDataParser.parse(xmlReader, dtdInfo);
+            deploymentUnit.putAttachment(SipMetaData.ATTACHMENT_KEY, sipMetaData);
+        } catch (XMLStreamException e) {
+            throw new DeploymentUnitProcessingException("Failed to parse " + sipXml + " at ["
+                    + e.getLocation().getLineNumber() + "," + e.getLocation().getColumnNumber() + "]");
+        } catch (IOException e) {
+            throw new DeploymentUnitProcessingException("Failed to parse " + sipXml, e);
+        } finally {
+            try {
+                if (is != null) {
+                    is.close();
                 }
+            } catch (IOException e) {
+                // Ignore
             }
         }
     }

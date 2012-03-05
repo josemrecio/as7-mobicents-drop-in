@@ -43,6 +43,11 @@ patch -p0 --verbose < $GIT_BASE/jboss-as.drop-in/as7-mobicents-drop-in/patches/p
 cd $INSTALL_DIR_BASE/jboss-as-7.1.1.Final-SNAPSHOT/
 patch -p0 --verbose < $GIT_BASE/jboss-as.drop-in/as7-mobicents-drop-in/patches/patch.jboss-as-web.module.xml
 
+# Configure jboss-as-ee module
+#
+cd $INSTALL_DIR_BASE/jboss-as-7.1.1.Final-SNAPSHOT/
+patch -p0 --verbose < $GIT_BASE/jboss-as.drop-in/as7-mobicents-drop-in/patches/patch.jboss-as-ee.module.xml
+
 # Run AS7
 #
 ./bin/standalone.sh -c standalone-sip.xml -Djavax.servlet.sip.dar=file:///tmp/mobicents-dar.properties

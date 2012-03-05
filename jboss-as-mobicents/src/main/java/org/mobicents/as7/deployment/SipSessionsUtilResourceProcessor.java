@@ -1,6 +1,6 @@
 /*
  * JBoss, Home of Professional Open Source.
- * Copyright 2012, Red Hat, Inc., and individual contributors
+ * Copyright 2011, Red Hat, Inc., and individual contributors
  * as indicated by the @author tags. See the copyright.txt file in the
  * distribution for a full listing of individual contributors.
  *
@@ -22,35 +22,39 @@
 
 package org.mobicents.as7.deployment;
 
-import org.apache.catalina.core.StandardContext;
+import javax.servlet.sip.SipSessionsUtil;
+
+import org.jboss.as.ee.component.InjectionSource;
+import org.jboss.as.ee.component.deployers.EEResourceReferenceProcessor;
 import org.jboss.as.server.deployment.DeploymentUnit;
 import org.jboss.as.server.deployment.DeploymentUnitProcessingException;
-import org.jboss.as.web.ext.WebContextFactory;
-import org.jboss.logging.Logger;
 
 /**
- * The Sip context factory.
+ * Processes {@link javax.annotation.Resource @Resource} and {@link javax.annotation.Resources @Resources} annotations
+ * for a {@link SipSessionsUtil} type resource
+ * <p/>
  *
- * @author Emanuel Muckenhuber
- * @author josemrecio@gmail.com
+ * @author Jaikiran Pai
+ * @author josemrecio
+ *
  */
-class SIPContextFactory implements WebContextFactory {
+public final class SipSessionsUtilResourceProcessor implements EEResourceReferenceProcessor {
 
-    Logger logger = Logger.getLogger(SIPContextFactory.class);
+    DeploymentUnit sipDeploymentUnit;
 
-    @Override
-    public StandardContext createContext(final DeploymentUnit deploymentUnit) throws DeploymentUnitProcessingException {
-        logger.info("create context for " + deploymentUnit.getName());
-        // Create the SIP specific context
-        return new SIPWebContext(deploymentUnit);
+    SipSessionsUtilResourceProcessor(DeploymentUnit du) {
+        super();
+        sipDeploymentUnit = du;
     }
 
     @Override
-    public void postProcessContext(DeploymentUnit deploymentUnit, StandardContext webContext) {
-        logger.info("postProcessContext() for " + deploymentUnit.getName());
-        if (webContext instanceof SIPWebContext) {
-            ((SIPWebContext)webContext).postProcessContext(deploymentUnit);
-        }
+    public String getResourceReferenceType() {
+        return SipSessionsUtil.class.getName();
+    }
+
+    @Override
+    public InjectionSource getResourceReferenceBindingSource() throws DeploymentUnitProcessingException {
+        return new SipSessionsUtilInjectionSource(sipDeploymentUnit);
     }
 
 }
