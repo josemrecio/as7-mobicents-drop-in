@@ -42,6 +42,7 @@ import org.mobicents.servlet.sip.startup.SipStandardService;
  */
 class SipServerService implements SipServer, Service<SipServer> {
 
+    // FIXME: josemrecio - settle on using the proper name
     private static final String JBOSS_SIP = "jboss.sip";
     //private static final String JBOSS_WEB = "jboss.web";
     private static final String JBOSS_WEB = "jboss.sip";

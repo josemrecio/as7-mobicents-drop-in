@@ -33,11 +33,10 @@ import org.jboss.as.controller.OperationFailedException;
 import org.jboss.as.controller.ServiceVerificationHandler;
 import org.jboss.as.controller.descriptions.DescriptionProvider;
 import org.jboss.as.controller.registry.Resource;
+import org.jboss.as.controller.services.path.AbstractPathService;
 import org.jboss.as.server.AbstractDeploymentChainStep;
 import org.jboss.as.server.DeploymentProcessorTarget;
 import org.jboss.as.server.deployment.Phase;
-import org.jboss.as.controller.services.path.AbstractPathService;
-import org.jboss.as.ee.component.deployers.ModuleJndiBindingProcessor;
 import org.jboss.dmr.ModelNode;
 import org.jboss.msc.service.ServiceBuilder.DependencyType;
 import org.jboss.msc.service.ServiceController;
@@ -53,6 +52,7 @@ import org.mobicents.as7.deployment.SipParsingDeploymentProcessor;
  * Adds the web subsystem.
  *
  * @author Emanuel Muckenhuber
+ * @author josemrecio@gmail.com
  */
 class SipSubsystemAdd extends AbstractBoottimeAddStepHandler implements DescriptionProvider {
 

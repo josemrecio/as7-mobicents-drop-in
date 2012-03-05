@@ -61,13 +61,19 @@ public class SIPWebContext extends SipStandardContext {
     private final DeploymentUnit deploymentUnit;
     private SipJBossContextConfig sipJBossContextConfig;
 
-    public SIPWebContext(DeploymentUnit deploymentUnit) {
+    public SIPWebContext(DeploymentUnit du) {
         super();
-        this.deploymentUnit = deploymentUnit;
+        deploymentUnit = du;
         sipJBossContextConfig = createContextConfig(this, deploymentUnit);
-        if (DeploymentTypeMarker.isType(DeploymentType.EAR, this.deploymentUnit.getParent())) {
-            System.err.println("Attaching SIPWebContext " + this + " to " + deploymentUnit.getParent().getName());
-            deploymentUnit.getParent().putAttachment(SIPWebContext.ATTACHMENT, this);
+        // if this an ear deployment, attach this to the parent deploymentUnit so it can be used to inject context resources (SipFactory, etc.)
+        DeploymentUnit parentDu = deploymentUnit.getParent();
+        if (parentDu == null) {
+            // this is a war only deployment
+            return;
+        }
+        if (DeploymentTypeMarker.isType(DeploymentType.EAR, parentDu)) {
+            System.err.println("Attaching SIPWebContext " + this + " to " + parentDu.getName());
+            parentDu.putAttachment(SIPWebContext.ATTACHMENT, this);
         }
     }
 

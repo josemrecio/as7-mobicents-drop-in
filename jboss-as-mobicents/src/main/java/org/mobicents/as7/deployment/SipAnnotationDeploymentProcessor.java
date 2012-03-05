@@ -67,6 +67,7 @@ import org.jboss.vfs.VirtualFile;
  *
  * @author Emanuel Muckenhuber
  * @author Remy Maucherat
+ * @author josemrecio@gmail.com
  */
 public class SipAnnotationDeploymentProcessor implements DeploymentUnitProcessor {
 
