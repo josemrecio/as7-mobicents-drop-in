@@ -39,26 +39,26 @@ import org.jboss.metadata.javaee.spec.IconsImpl;
 import org.jboss.metadata.javaee.spec.ParamValueMetaData;
 import org.jboss.metadata.javaee.spec.SecurityRoleRefMetaData;
 import org.jboss.metadata.javaee.spec.SecurityRoleRefsMetaData;
-import org.jboss.metadata.sip.jboss.JBossConvergedSipMetaData;
-import org.jboss.metadata.sip.jboss.JBossSipServletsMetaData;
-import org.jboss.metadata.sip.spec.AndMetaData;
-import org.jboss.metadata.sip.spec.ConditionMetaData;
-import org.jboss.metadata.sip.spec.ContainsMetaData;
-import org.jboss.metadata.sip.spec.EqualMetaData;
-import org.jboss.metadata.sip.spec.ExistsMetaData;
-import org.jboss.metadata.sip.spec.NotMetaData;
-import org.jboss.metadata.sip.spec.OrMetaData;
-import org.jboss.metadata.sip.spec.PatternMetaData;
-import org.jboss.metadata.sip.spec.SipLoginConfigMetaData;
-import org.jboss.metadata.sip.spec.SipResourceCollectionMetaData;
-import org.jboss.metadata.sip.spec.SipResourceCollectionsMetaData;
-import org.jboss.metadata.sip.spec.SipSecurityConstraintMetaData;
-import org.jboss.metadata.sip.spec.SipServletMappingMetaData;
-import org.jboss.metadata.sip.spec.SipServletSelectionMetaData;
-import org.jboss.metadata.sip.spec.SubdomainOfMetaData;
 import org.jboss.metadata.web.spec.ListenerMetaData;
 import org.jboss.metadata.web.spec.ServletMetaData;
 import org.jboss.metadata.web.spec.TransportGuaranteeType;
+import org.mobicents.metadata.sip.jboss.JBossConvergedSipMetaData;
+import org.mobicents.metadata.sip.jboss.JBossSipServletsMetaData;
+import org.mobicents.metadata.sip.spec.AndMetaData;
+import org.mobicents.metadata.sip.spec.ConditionMetaData;
+import org.mobicents.metadata.sip.spec.ContainsMetaData;
+import org.mobicents.metadata.sip.spec.EqualMetaData;
+import org.mobicents.metadata.sip.spec.ExistsMetaData;
+import org.mobicents.metadata.sip.spec.NotMetaData;
+import org.mobicents.metadata.sip.spec.OrMetaData;
+import org.mobicents.metadata.sip.spec.PatternMetaData;
+import org.mobicents.metadata.sip.spec.SipLoginConfigMetaData;
+import org.mobicents.metadata.sip.spec.SipResourceCollectionMetaData;
+import org.mobicents.metadata.sip.spec.SipResourceCollectionsMetaData;
+import org.mobicents.metadata.sip.spec.SipSecurityConstraintMetaData;
+import org.mobicents.metadata.sip.spec.SipServletMappingMetaData;
+import org.mobicents.metadata.sip.spec.SipServletSelectionMetaData;
+import org.mobicents.metadata.sip.spec.SubdomainOfMetaData;
 import org.mobicents.servlet.sip.catalina.CatalinaSipContext;
 import org.mobicents.servlet.sip.catalina.SipDeploymentException;
 import org.mobicents.servlet.sip.catalina.SipLoginConfig;
@@ -138,11 +138,11 @@ public class SipJBossContextConfig extends /*JBossContextConfig*/ ContextConfig 
          */
         // description
         DescriptionGroupMetaData descriptionGroupMetaData = convergedMetaData.getDescriptionGroup();
-        // FIXME: josemrecio - dirty way to detect we are in defaultWebConfig() phase
-        // if so, as there is no defaultSipConfig() equivalent, we just return
-        if (descriptionGroupMetaData == null) {
-            return;
-        }
+//        // FIXME: josemrecio - dirty way to detect we are in defaultWebConfig() phase
+//        // if so, as there is no defaultSipConfig() equivalent, we just return
+//        if (descriptionGroupMetaData == null) {
+//            return;
+//        }
         if (descriptionGroupMetaData != null) {
             DescriptionsImpl descriptionsImpl = (DescriptionsImpl) descriptionGroupMetaData.getDescriptions();
             if (descriptionsImpl != null && !descriptionsImpl.isEmpty()) {

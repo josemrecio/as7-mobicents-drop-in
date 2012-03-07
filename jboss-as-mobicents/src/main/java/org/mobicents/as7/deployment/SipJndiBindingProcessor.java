@@ -32,7 +32,7 @@ import org.jboss.as.server.deployment.DeploymentPhaseContext;
 import org.jboss.as.server.deployment.DeploymentUnit;
 import org.jboss.as.server.deployment.DeploymentUnitProcessingException;
 import org.jboss.as.server.deployment.DeploymentUnitProcessor;
-import org.jboss.metadata.sip.spec.SipMetaData;
+import org.mobicents.metadata.sip.spec.SipMetaData;
 
 /**
  * @author Stuart Douglas
@@ -40,10 +40,11 @@ import org.jboss.metadata.sip.spec.SipMetaData;
  */
 public class SipJndiBindingProcessor implements DeploymentUnitProcessor {
 
-    static final String JNDI_SIP_BASE = "java:app/sip/";
-    static final String SIP_FACTORY_JNDI = "/SipFactory";
-    static final String SIP_SESSIONS_UTIL_JNDI = "/SipSessionsUtil";
-    static final String SIP_TIMER_SERVICE_JNDI = "/TimerService";
+    static final String[] JNDI_BASE_FOR_SIP = {"java:", "java:app/", "java:comp/env/"};
+    static final String SIP_PREFIX_JNDI = "sip/";
+    static final String SIP_FACTORY_JNDI = "SipFactory";
+    static final String SIP_SESSIONS_UTIL_JNDI = "SipSessionsUtil";
+    static final String SIP_TIMER_SERVICE_JNDI = "TimerService";
 
 
     @Override
@@ -78,9 +79,12 @@ public class SipJndiBindingProcessor implements DeploymentUnitProcessor {
             if (description == null) {
                 continue;
             }
-            description.getBindingConfigurations().add(new BindingConfiguration(JNDI_SIP_BASE + sipApplicationName + SIP_FACTORY_JNDI, new SipFactoryInjectionSource(deploymentUnit)));
-            description.getBindingConfigurations().add(new BindingConfiguration(JNDI_SIP_BASE + sipApplicationName + SIP_SESSIONS_UTIL_JNDI, new SipSessionsUtilInjectionSource(deploymentUnit)));
-            description.getBindingConfigurations().add(new BindingConfiguration(JNDI_SIP_BASE + sipApplicationName + SIP_TIMER_SERVICE_JNDI, new SipTimerServiceInjectionSource(deploymentUnit)));
+            for (String jndiBaseSip: JNDI_BASE_FOR_SIP) {
+                final String jndiBaseMapped = jndiBaseSip + SIP_PREFIX_JNDI + sipApplicationName + "/";
+                description.getBindingConfigurations().add(new BindingConfiguration(jndiBaseMapped + SIP_FACTORY_JNDI, new SipFactoryInjectionSource(deploymentUnit)));
+                description.getBindingConfigurations().add(new BindingConfiguration(jndiBaseMapped + SIP_SESSIONS_UTIL_JNDI, new SipSessionsUtilInjectionSource(deploymentUnit)));
+                description.getBindingConfigurations().add(new BindingConfiguration(jndiBaseMapped + SIP_TIMER_SERVICE_JNDI, new SipTimerServiceInjectionSource(deploymentUnit)));
+            }
         }
     }
 

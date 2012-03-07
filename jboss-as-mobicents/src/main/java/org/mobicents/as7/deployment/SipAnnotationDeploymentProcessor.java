@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import javax.servlet.sip.annotation.SipApplication;
 import javax.servlet.sip.annotation.SipListener;
 import javax.servlet.sip.annotation.SipServlet;
 
@@ -47,6 +48,7 @@ import org.jboss.jandex.AnnotationValue;
 import org.jboss.jandex.ClassInfo;
 import org.jboss.jandex.DotName;
 import org.jboss.jandex.Index;
+import org.jboss.logging.Logger;
 import org.jboss.metadata.javaee.spec.DescriptionGroupMetaData;
 import org.jboss.metadata.javaee.spec.DescriptionImpl;
 import org.jboss.metadata.javaee.spec.DescriptionsImpl;
@@ -54,13 +56,16 @@ import org.jboss.metadata.javaee.spec.DisplayNameImpl;
 import org.jboss.metadata.javaee.spec.DisplayNamesImpl;
 import org.jboss.metadata.javaee.spec.IconImpl;
 import org.jboss.metadata.javaee.spec.IconsImpl;
-import org.jboss.metadata.sip.spec.Sip11MetaData;
-import org.jboss.metadata.sip.spec.SipAnnotationMetaData;
-import org.jboss.metadata.sip.spec.SipMetaData;
-import org.jboss.metadata.sip.spec.SipServletsMetaData;
 import org.jboss.metadata.web.spec.ListenerMetaData;
 import org.jboss.metadata.web.spec.ServletMetaData;
+import org.jboss.metadata.web.spec.SessionConfigMetaData;
 import org.jboss.vfs.VirtualFile;
+import org.mobicents.metadata.sip.spec.ProxyConfigMetaData;
+import org.mobicents.metadata.sip.spec.Sip11MetaData;
+import org.mobicents.metadata.sip.spec.SipAnnotationMetaData;
+import org.mobicents.metadata.sip.spec.SipMetaData;
+import org.mobicents.metadata.sip.spec.SipServletSelectionMetaData;
+import org.mobicents.metadata.sip.spec.SipServletsMetaData;
 
 /**
  * Web annotation deployment processor.
@@ -70,6 +75,8 @@ import org.jboss.vfs.VirtualFile;
  * @author josemrecio@gmail.com
  */
 public class SipAnnotationDeploymentProcessor implements DeploymentUnitProcessor {
+
+    private static final Logger logger = Logger.getLogger(SipAnnotationDeploymentProcessor.class);
 
 //    // @RunAs
 //    addTypeProcessor(new RunAsProcessor(finder));
@@ -87,6 +94,7 @@ public class SipAnnotationDeploymentProcessor implements DeploymentUnitProcessor
 //    protected static final DotName webFilter = DotName.createSimple(WebFilter.class.getName());
     protected static final DotName sipListener = DotName.createSimple(SipListener.class.getName());
     protected static final DotName sipServlet = DotName.createSimple(SipServlet.class.getName());
+    protected static final DotName sipApplication = DotName.createSimple(SipApplication.class.getName());
 //    protected static final DotName webServlet = DotName.createSimple(WebServlet.class.getName());
 //    protected static final DotName runAs = DotName.createSimple(RunAs.class.getName());
 //    protected static final DotName declareRoles = DotName.createSimple(DeclareRoles.class.getName());
@@ -110,9 +118,9 @@ public class SipAnnotationDeploymentProcessor implements DeploymentUnitProcessor
         }
         Map<ResourceRoot, Index> indexes = AnnotationIndexUtils.getAnnotationIndexes(deploymentUnit);
 
-        // Process lib/*.jar
+        // Process components
         for (final Entry<ResourceRoot, Index> entry : indexes.entrySet()) {
-            System.err.println("doDeploy(): processing annotations from " + entry.getKey().getRootName());
+            if (logger.isDebugEnabled()) logger.debug("doDeploy(): processing annotations from " + entry.getKey().getRootName());
             final Index jarIndex = entry.getValue();
             sipAnnotationsMetaData.put(entry.getKey().getRootName(), processAnnotations(jarIndex));
         }
@@ -122,19 +130,16 @@ public class SipAnnotationDeploymentProcessor implements DeploymentUnitProcessor
      * Process a single index.
      *
      * @param index the annotation index
-     * @param classLoader the module classloader
      * @throws DeploymentUnitProcessingException
      */
     protected SipMetaData processAnnotations(Index index) throws DeploymentUnitProcessingException {
-        Sip11MetaData sipMetaData = new Sip11MetaData();
-        System.err.println("processAnnotations()");
+        Sip11MetaData sipAnnotationMetaData = new Sip11MetaData();
         // @SipListener
         final List<AnnotationInstance> sipListenerAnnotations = index.getAnnotations(sipListener);
         if (sipListenerAnnotations != null && sipListenerAnnotations.size() > 0) {
-            System.err.println("processAnnotations(): sipListeners size > 0");
             List<ListenerMetaData> listeners = new ArrayList<ListenerMetaData>();
             for (final AnnotationInstance annotation : sipListenerAnnotations) {
-                System.err.println("processAnnotations(): sipListener: " + annotation);
+                if (logger.isDebugEnabled()) logger.debug("processAnnotations(): @SipListener: " + annotation);
                 ListenerMetaData listener = new ListenerMetaData();
                 AnnotationTarget target = annotation.target();
                 if (!(target instanceof ClassInfo)) {
@@ -149,23 +154,40 @@ public class SipAnnotationDeploymentProcessor implements DeploymentUnitProcessor
                         listener.setDescriptionGroup(descriptionGroup);
                     }
                 }
-                // FIXME: josemrecio - missed parsing of rest of annotation parameters
-                // applicationName
-                // name
-                System.err.println("processAnnotations(): sipListener added " + listener);
+                for (AnnotationValue value: annotation.values()) {
+                    if (value.name().compareTo("name") == 0) {
+                        // listener name not supported
+                        //listener.setName(value.asString());
+                    }
+                    else if (value.name().compareTo("applicationName") == 0) {
+                        if (sipAnnotationMetaData.getApplicationName() == null) {
+                            sipAnnotationMetaData.setApplicationName(value.asString());
+                        }
+                        else if ((sipAnnotationMetaData.getApplicationName() != null) && (sipAnnotationMetaData.getApplicationName().compareTo(value.asString()) != 0)) {
+                            throw (new DeploymentUnitProcessingException("Sip Application Name mismatch: already loaded: " + sipAnnotationMetaData.getApplicationName() + " - from @SipListener annotation (" + listener.getListenerClass() + "): " + value.asString()));
+                        }
+                    }
+                }
+                if (logger.isDebugEnabled()) logger.debug("processAnnotations(): sipListener added " + listener);
                 listeners.add(listener);
             }
-            System.err.println("processAnnotations(): " + listeners.size() + " sipListeners added");
-            sipMetaData.setListeners(listeners);
+            if (logger.isDebugEnabled()) logger.debug("processAnnotations(): " + listeners.size() + " sipListeners added");
+            sipAnnotationMetaData.setListeners(listeners);
         }
 
         // @SipServlet
         final List<AnnotationInstance> sipServletAnnotations = index.getAnnotations(sipServlet);
         if (sipServletAnnotations != null && sipServletAnnotations.size() > 0) {
-            System.err.println("processAnnotations(): sipServlets size > 0");
             SipServletsMetaData sipServlets = new SipServletsMetaData();
+            // @SipApplication
+            final List<AnnotationInstance> sipApplicationAnnotations = index.getAnnotations(sipApplication);
+            boolean sipApplicationPresent = false;
+            String parsedAnnotatedPackage = null;
+            if (sipApplicationAnnotations != null && sipApplicationAnnotations.size() > 0) {
+                sipApplicationPresent = true;
+            }
             for (final AnnotationInstance annotation : sipServletAnnotations) {
-                System.err.println("processAnnotations(): sipServlet: " + annotation);
+                if (logger.isDebugEnabled()) logger.debug("processAnnotations(): @SipServlet: " + annotation);
                 ServletMetaData servlet = new ServletMetaData();
                 AnnotationTarget target = annotation.target();
                 if (!(target instanceof ClassInfo)) {
@@ -180,10 +202,6 @@ public class SipAnnotationDeploymentProcessor implements DeploymentUnitProcessor
                         servlet.setDescriptionGroup(descriptionGroup);
                     }
                 }
-                // FIXME: josemrecio - missed parsing of rest of annotation parameters
-                // applicationName
-                // loadOnStartup
-                // name
                 for (AnnotationValue value: annotation.values()) {
                     if (value.name().compareTo("name") == 0) {
                         servlet.setName(value.asString());
@@ -192,410 +210,43 @@ public class SipAnnotationDeploymentProcessor implements DeploymentUnitProcessor
                         servlet.setLoadOnStartup(value.asString());
                     }
                     else if (value.name().compareTo("applicationName") == 0) {
-                        if ((sipMetaData.getApplicationName() != null) && (sipMetaData.getApplicationName().compareTo(value.asString()) != 0)) {
-                            throw (new DeploymentUnitProcessingException("Sip Application Name mismatch: already loaded: " + sipMetaData.getApplicationName() + " - from annotation: " + value.asString()));
+                        if (sipAnnotationMetaData.getApplicationName() == null) {
+                            sipAnnotationMetaData.setApplicationName(value.asString());
                         }
-                        sipMetaData.setApplicationName(value.asString());
+                        else if ((sipAnnotationMetaData.getApplicationName() != null) && (sipAnnotationMetaData.getApplicationName().compareTo(value.asString()) != 0)) {
+                            throw (new DeploymentUnitProcessingException("Sip Application Name mismatch: already loaded: " + sipAnnotationMetaData.getApplicationName() + " - from @SipServlet annotation (" + servlet.getServletClass() + "): " + value.asString()));
+                        }
                     }
                 }
-
                 if (servlet.getName() == null) {
                     // must have a name
                     servlet.setName(servlet.getServletClass());
                 }
-                System.err.println("processAnnotations(): sipServlet added " + servlet);
+                if (sipApplicationPresent) {
+                    AnnotationInstance sipAppAnnotation = sipApplicationAnnotations.get(0);
+                    if (logger.isDebugEnabled()) logger.debug("processAnnotations(): @SipAnnotation: " + annotation);
+                    AnnotationTarget sipAppTarget = sipAppAnnotation.target();
+                    if (!(target instanceof ClassInfo)) {
+                        throw new DeploymentUnitProcessingException("@SipAnnotation is only allowed at class level " + target);
+                    }
+                    ClassInfo sipAppClassInfo = ClassInfo.class.cast(sipAppTarget);
+                    String packageName = sipAppClassInfo.toString().substring(0,sipAppClassInfo.toString().lastIndexOf('.'));
+                    if (parsedAnnotatedPackage != null && !parsedAnnotatedPackage.equals(packageName)) {
+                        throw new DeploymentUnitProcessingException("Cant have two different applications in a single context - " + packageName + " and " + parsedAnnotatedPackage);
+                    }
+                    if (parsedAnnotatedPackage == null) {
+                        parsedAnnotatedPackage = packageName;
+                        parseSipApplication(sipAnnotationMetaData,sipAppAnnotation, packageName);
+                    }
+                }
+                if (logger.isDebugEnabled()) logger.debug("processAnnotations(): sipServlet added " + servlet);
                 sipServlets.add(servlet);
             }
-            System.err.println("processAnnotations(): " + sipServlets.size() + " sipServlets added");
-            sipMetaData.setSipServlets(sipServlets);
+            if (logger.isDebugEnabled()) logger.debug("processAnnotations(): " + sipServlets.size() + " sipServlets added");
+            sipAnnotationMetaData.setSipServlets(sipServlets);
         }
 
-        /*
-        Web30MetaData metaData = new Web30MetaData();
-        // @WebServlet
-        final List<AnnotationInstance> webServletAnnotations = index.getAnnotations(webServlet);
-        if (webServletAnnotations != null && webServletAnnotations.size() > 0) {
-            ServletsMetaData servlets = new ServletsMetaData();
-            List<ServletMappingMetaData> servletMappings = new ArrayList<ServletMappingMetaData>();
-            for (final AnnotationInstance annotation : webServletAnnotations) {
-                ServletMetaData servlet = new ServletMetaData();
-                AnnotationTarget target = annotation.target();
-                if (!(target instanceof ClassInfo)) {
-                    throw new DeploymentUnitProcessingException(MESSAGES.invalidWebServletAnnotation(target));
-                }
-                ClassInfo classInfo = ClassInfo.class.cast(target);
-                servlet.setServletClass(classInfo.toString());
-                AnnotationValue nameValue = annotation.value("name");
-                if (nameValue == null || nameValue.asString().isEmpty()) {
-                    servlet.setName(classInfo.toString());
-                } else {
-                    servlet.setName(nameValue.asString());
-                }
-                AnnotationValue loadOnStartup = annotation.value("loadOnStartup");
-                if (loadOnStartup != null && loadOnStartup.asInt() > 0) {
-                    servlet.setLoadOnStartupInt(loadOnStartup.asInt());
-                }
-                AnnotationValue asyncSupported = annotation.value("asyncSupported");
-                if (asyncSupported != null) {
-                    servlet.setAsyncSupported(asyncSupported.asBoolean());
-                }
-                AnnotationValue initParamsValue = annotation.value("initParams");
-                if (initParamsValue != null) {
-                    AnnotationInstance[] initParamsAnnotations = initParamsValue.asNestedArray();
-                    if (initParamsAnnotations != null && initParamsAnnotations.length > 0) {
-                        List<ParamValueMetaData> initParams = new ArrayList<ParamValueMetaData>();
-                        for (AnnotationInstance initParamsAnnotation : initParamsAnnotations) {
-                            ParamValueMetaData initParam = new ParamValueMetaData();
-                            AnnotationValue initParamName = initParamsAnnotation.value("name");
-                            AnnotationValue initParamValue = initParamsAnnotation.value();
-                            if (initParamName == null || initParamValue == null) {
-                                throw new DeploymentUnitProcessingException(MESSAGES.invalidWebInitParamAnnotation(target));
-                            }
-                            AnnotationValue initParamDescription = initParamsAnnotation.value("description");
-                            initParam.setParamName(initParamName.asString());
-                            initParam.setParamValue(initParamValue.asString());
-                            if (initParamDescription != null) {
-                                Descriptions descriptions = getDescription(initParamDescription.asString());
-                                if (descriptions != null) {
-                                    initParam.setDescriptions(descriptions);
-                                }
-                            }
-                            initParams.add(initParam);
-                        }
-                        servlet.setInitParam(initParams);
-                    }
-                }
-                AnnotationValue descriptionValue = annotation.value("description");
-                AnnotationValue displayNameValue = annotation.value("displayName");
-                AnnotationValue smallIconValue = annotation.value("smallIcon");
-                AnnotationValue largeIconValue = annotation.value("largeIcon");
-                DescriptionGroupMetaData descriptionGroup =
-                    getDescriptionGroup((descriptionValue == null) ? "" : descriptionValue.asString(),
-                            (displayNameValue == null) ? "" : displayNameValue.asString(),
-                            (smallIconValue == null) ? "" : smallIconValue.asString(),
-                            (largeIconValue == null) ? "" : largeIconValue.asString());
-                if (descriptionGroup != null) {
-                    servlet.setDescriptionGroup(descriptionGroup);
-                }
-                ServletMappingMetaData servletMapping = new ServletMappingMetaData();
-                servletMapping.setServletName(servlet.getName());
-                List<String> urlPatterns = new ArrayList<String>();
-                AnnotationValue urlPatternsValue = annotation.value("urlPatterns");
-                if (urlPatternsValue != null) {
-                    for (String urlPattern : urlPatternsValue.asStringArray()) {
-                        urlPatterns.add(urlPattern);
-                    }
-                }
-                urlPatternsValue = annotation.value();
-                if (urlPatternsValue != null) {
-                    for (String urlPattern : urlPatternsValue.asStringArray()) {
-                        urlPatterns.add(urlPattern);
-                    }
-                }
-                if (urlPatterns.size() > 0) {
-                    servletMapping.setUrlPatterns(urlPatterns);
-                    servletMappings.add(servletMapping);
-                }
-                servlets.add(servlet);
-            }
-            metaData.setServlets(servlets);
-            metaData.setServletMappings(servletMappings);
-        }
-        // @WebFilter
-        final List<AnnotationInstance> webFilterAnnotations = index.getAnnotations(webFilter);
-        if (webFilterAnnotations != null && webFilterAnnotations.size() > 0) {
-            FiltersMetaData filters = new FiltersMetaData();
-            List<FilterMappingMetaData> filterMappings = new ArrayList<FilterMappingMetaData>();
-            for (final AnnotationInstance annotation : webFilterAnnotations) {
-                FilterMetaData filter = new FilterMetaData();
-                AnnotationTarget target = annotation.target();
-                if (!(target instanceof ClassInfo)) {
-                    throw new DeploymentUnitProcessingException(MESSAGES.invalidWebFilterAnnotation(target));
-                }
-                ClassInfo classInfo = ClassInfo.class.cast(target);
-                filter.setFilterClass(classInfo.toString());
-                AnnotationValue nameValue = annotation.value("filterName");
-                if (nameValue == null || nameValue.asString().isEmpty()) {
-                    filter.setName(classInfo.toString());
-                } else {
-                    filter.setName(nameValue.asString());
-                }
-                AnnotationValue asyncSupported = annotation.value("asyncSupported");
-                if (asyncSupported != null) {
-                    filter.setAsyncSupported(asyncSupported.asBoolean());
-                }
-                AnnotationValue initParamsValue = annotation.value("initParams");
-                if (initParamsValue != null) {
-                    AnnotationInstance[] initParamsAnnotations = initParamsValue.asNestedArray();
-                    if (initParamsAnnotations != null && initParamsAnnotations.length > 0) {
-                        List<ParamValueMetaData> initParams = new ArrayList<ParamValueMetaData>();
-                        for (AnnotationInstance initParamsAnnotation : initParamsAnnotations) {
-                            ParamValueMetaData initParam = new ParamValueMetaData();
-                            AnnotationValue initParamName = initParamsAnnotation.value("name");
-                            AnnotationValue initParamValue = initParamsAnnotation.value();
-                            if (initParamName == null || initParamValue == null) {
-                                throw new DeploymentUnitProcessingException(MESSAGES.invalidWebInitParamAnnotation(target));
-                            }
-                            AnnotationValue initParamDescription = initParamsAnnotation.value("description");
-                            initParam.setParamName(initParamName.asString());
-                            initParam.setParamValue(initParamValue.asString());
-                            if (initParamDescription != null) {
-                                Descriptions descriptions = getDescription(initParamDescription.asString());
-                                if (descriptions != null) {
-                                    initParam.setDescriptions(descriptions);
-                                }
-                            }
-                            initParams.add(initParam);
-                        }
-                        filter.setInitParam(initParams);
-                    }
-                }
-                AnnotationValue descriptionValue = annotation.value("description");
-                AnnotationValue displayNameValue = annotation.value("displayName");
-                AnnotationValue smallIconValue = annotation.value("smallIcon");
-                AnnotationValue largeIconValue = annotation.value("largeIcon");
-                DescriptionGroupMetaData descriptionGroup =
-                    getDescriptionGroup((descriptionValue == null) ? "" : descriptionValue.asString(),
-                            (displayNameValue == null) ? "" : displayNameValue.asString(),
-                            (smallIconValue == null) ? "" : smallIconValue.asString(),
-                            (largeIconValue == null) ? "" : largeIconValue.asString());
-                if (descriptionGroup != null) {
-                    filter.setDescriptionGroup(descriptionGroup);
-                }
-                filters.add(filter);
-                FilterMappingMetaData filterMapping = new FilterMappingMetaData();
-                filterMapping.setFilterName(filter.getName());
-                List<String> urlPatterns = new ArrayList<String>();
-                List<String> servletNames = new ArrayList<String>();
-                List<DispatcherType> dispatchers = new ArrayList<DispatcherType>();
-                AnnotationValue urlPatternsValue = annotation.value("urlPatterns");
-                if (urlPatternsValue != null) {
-                    for (String urlPattern : urlPatternsValue.asStringArray()) {
-                        urlPatterns.add(urlPattern);
-                    }
-                }
-                urlPatternsValue = annotation.value();
-                if (urlPatternsValue != null) {
-                    for (String urlPattern : urlPatternsValue.asStringArray()) {
-                        urlPatterns.add(urlPattern);
-                    }
-                }
-                if (urlPatterns.size() > 0) {
-                    filterMapping.setUrlPatterns(urlPatterns);
-                }
-                AnnotationValue servletNamesValue = annotation.value("servletNames");
-                if (servletNamesValue != null) {
-                    for (String servletName : servletNamesValue.asStringArray()) {
-                        servletNames.add(servletName);
-                    }
-                }
-                if (servletNames.size() > 0) {
-                    filterMapping.setServletNames(servletNames);
-                }
-                AnnotationValue dispatcherTypesValue = annotation.value("dispatcherTypes");
-                if (dispatcherTypesValue != null) {
-                    for (String dispatcherValue : dispatcherTypesValue.asEnumArray()) {
-                        dispatchers.add(DispatcherType.valueOf(dispatcherValue));
-                    }
-                }
-                if (dispatchers.size() > 0) {
-                    filterMapping.setDispatchers(dispatchers);
-                }
-                if (urlPatterns.size() > 0 || servletNames.size() > 0) {
-                    filterMappings.add(filterMapping);
-                }
-            }
-            metaData.setFilters(filters);
-            metaData.setFilterMappings(filterMappings);
-        }
-        // @WebListener
-        final List<AnnotationInstance> webListenerAnnotations = index.getAnnotations(webListener);
-        if (webListenerAnnotations != null && webListenerAnnotations.size() > 0) {
-            List<ListenerMetaData> listeners = new ArrayList<ListenerMetaData>();
-            for (final AnnotationInstance annotation : webListenerAnnotations) {
-                ListenerMetaData listener = new ListenerMetaData();
-                AnnotationTarget target = annotation.target();
-                if (!(target instanceof ClassInfo)) {
-                    throw new DeploymentUnitProcessingException(MESSAGES.invalidWebListenerAnnotation(target));
-                }
-                ClassInfo classInfo = ClassInfo.class.cast(target);
-                listener.setListenerClass(classInfo.toString());
-                AnnotationValue descriptionValue = annotation.value();
-                if (descriptionValue != null) {
-                    DescriptionGroupMetaData descriptionGroup = getDescriptionGroup(descriptionValue.asString());
-                    if (descriptionGroup != null) {
-                        listener.setDescriptionGroup(descriptionGroup);
-                    }
-                }
-                listeners.add(listener);
-            }
-            metaData.setListeners(listeners);
-        }
-        // @RunAs
-        final List<AnnotationInstance> runAsAnnotations = index.getAnnotations(runAs);
-        if (runAsAnnotations != null && runAsAnnotations.size() > 0) {
-            AnnotationsMetaData annotations = metaData.getAnnotations();
-            if (annotations == null) {
-               annotations = new AnnotationsMetaData();
-               metaData.setAnnotations(annotations);
-            }
-            for (final AnnotationInstance annotation : runAsAnnotations) {
-                AnnotationTarget target = annotation.target();
-                if (!(target instanceof ClassInfo)) {
-                    continue;
-                }
-                ClassInfo classInfo = ClassInfo.class.cast(target);
-                AnnotationMetaData annotationMD = annotations.get(classInfo.toString());
-                if (annotationMD == null) {
-                    annotationMD = new AnnotationMetaData();
-                    annotationMD.setClassName(classInfo.toString());
-                    annotations.add(annotationMD);
-                }
-                if (annotation.value() == null) {
-                    throw new DeploymentUnitProcessingException(MESSAGES.invalidRunAsAnnotation(target));
-                }
-                RunAsMetaData runAs = new RunAsMetaData();
-                runAs.setRoleName(annotation.value().asString());
-                annotationMD.setRunAs(runAs);
-            }
-        }
-        // @DeclareRoles
-        final List<AnnotationInstance> declareRolesAnnotations = index.getAnnotations(declareRoles);
-        if (declareRolesAnnotations != null && declareRolesAnnotations.size() > 0) {
-            SecurityRolesMetaData securityRoles = metaData.getSecurityRoles();
-            if (securityRoles == null) {
-               securityRoles = new SecurityRolesMetaData();
-               metaData.setSecurityRoles(securityRoles);
-            }
-            for (final AnnotationInstance annotation : declareRolesAnnotations) {
-                if (annotation.value() == null) {
-                    throw new DeploymentUnitProcessingException(MESSAGES.invalidDeclareRolesAnnotation(annotation.target()));
-                }
-                for (String role : annotation.value().asStringArray()) {
-                    SecurityRoleMetaData sr = new SecurityRoleMetaData();
-                    sr.setRoleName(role);
-                    securityRoles.add(sr);
-                }
-            }
-        }
-        // @MultipartConfig
-        final List<AnnotationInstance> multipartConfigAnnotations = index.getAnnotations(multipartConfig);
-        if (multipartConfigAnnotations != null && multipartConfigAnnotations.size() > 0) {
-            AnnotationsMetaData annotations = metaData.getAnnotations();
-            if (annotations == null) {
-               annotations = new AnnotationsMetaData();
-               metaData.setAnnotations(annotations);
-            }
-            for (final AnnotationInstance annotation : multipartConfigAnnotations) {
-                AnnotationTarget target = annotation.target();
-                if (!(target instanceof ClassInfo)) {
-                    throw new DeploymentUnitProcessingException(MESSAGES.invalidMultipartConfigAnnotation(target));
-                }
-                ClassInfo classInfo = ClassInfo.class.cast(target);
-                AnnotationMetaData annotationMD = annotations.get(classInfo.toString());
-                if (annotationMD == null) {
-                    annotationMD = new AnnotationMetaData();
-                    annotationMD.setClassName(classInfo.toString());
-                    annotations.add(annotationMD);
-                }
-                MultipartConfigMetaData multipartConfig = new MultipartConfigMetaData();
-                AnnotationValue locationValue = annotation.value("location");
-                if (locationValue != null && locationValue.asString().length() > 0) {
-                    multipartConfig.setLocation(locationValue.asString());
-                }
-                AnnotationValue maxFileSizeValue = annotation.value("maxFileSize");
-                if (maxFileSizeValue != null && maxFileSizeValue.asLong() != -1L) {
-                    multipartConfig.setMaxFileSize(maxFileSizeValue.asLong());
-                }
-                AnnotationValue maxRequestSizeValue = annotation.value("maxRequestSize");
-                if (maxRequestSizeValue != null && maxRequestSizeValue.asLong() != -1L) {
-                    multipartConfig.setMaxRequestSize(maxRequestSizeValue.asLong());
-                }
-                AnnotationValue fileSizeThresholdValue = annotation.value("fileSizeThreshold");
-                if (fileSizeThresholdValue != null && fileSizeThresholdValue.asInt() != 0) {
-                    multipartConfig.setFileSizeThreshold(fileSizeThresholdValue.asInt());
-                }
-                annotationMD.setMultipartConfig(multipartConfig);
-            }
-        }
-        // @ServletSecurity
-        final List<AnnotationInstance> servletSecurityAnnotations = index.getAnnotations(servletSecurity);
-        if (servletSecurityAnnotations != null && servletSecurityAnnotations.size() > 0) {
-            AnnotationsMetaData annotations = metaData.getAnnotations();
-            if (annotations == null) {
-               annotations = new AnnotationsMetaData();
-               metaData.setAnnotations(annotations);
-            }
-            for (final AnnotationInstance annotation : servletSecurityAnnotations) {
-                AnnotationTarget target = annotation.target();
-                if (!(target instanceof ClassInfo)) {
-                    throw new DeploymentUnitProcessingException(MESSAGES.invalidServletSecurityAnnotation(target));
-                }
-                ClassInfo classInfo = ClassInfo.class.cast(target);
-                AnnotationMetaData annotationMD = annotations.get(classInfo.toString());
-                if (annotationMD == null) {
-                    annotationMD = new AnnotationMetaData();
-                    annotationMD.setClassName(classInfo.toString());
-                    annotations.add(annotationMD);
-                }
-                ServletSecurityMetaData servletSecurity = new ServletSecurityMetaData();
-                AnnotationValue httpConstraintValue = annotation.value();
-                List<String> rolesAllowed = new ArrayList<String>();
-                if (httpConstraintValue != null) {
-                    AnnotationInstance httpConstraint = httpConstraintValue.asNested();
-                    AnnotationValue httpConstraintERSValue = httpConstraint.value();
-                    if (httpConstraintERSValue != null) {
-                        servletSecurity.setEmptyRoleSemantic(EmptyRoleSemanticType.valueOf(httpConstraintERSValue.asEnum()));
-                    }
-                    AnnotationValue httpConstraintTGValue = httpConstraint.value("transportGuarantee");
-                    if (httpConstraintTGValue != null) {
-                        servletSecurity.setTransportGuarantee(TransportGuaranteeType.valueOf(httpConstraintTGValue.asEnum()));
-                    }
-                    AnnotationValue rolesAllowedValue = httpConstraint.value("rolesAllowed");
-                    if (rolesAllowedValue != null) {
-                        for (String role : rolesAllowedValue.asStringArray()) {
-                            rolesAllowed.add(role);
-                        }
-                    }
-                }
-                servletSecurity.setRolesAllowed(rolesAllowed);
-                AnnotationValue httpMethodConstraintsValue = annotation.value("httpMethodConstraints");
-                if (httpMethodConstraintsValue != null) {
-                    AnnotationInstance[] httpMethodConstraints = httpMethodConstraintsValue.asNestedArray();
-                    if (httpMethodConstraints.length > 0) {
-                        List<HttpMethodConstraintMetaData> methodConstraints = new ArrayList<HttpMethodConstraintMetaData>();
-                        for (AnnotationInstance httpMethodConstraint : httpMethodConstraints) {
-                            HttpMethodConstraintMetaData methodConstraint = new HttpMethodConstraintMetaData();
-                            AnnotationValue httpMethodConstraintValue = httpMethodConstraint.value();
-                            if (httpMethodConstraintValue != null) {
-                                methodConstraint.setMethod(httpMethodConstraintValue.asString());
-                            }
-                            AnnotationValue httpMethodConstraintERSValue = httpMethodConstraint.value("emptyRoleSemantic");
-                            if (httpMethodConstraintERSValue != null) {
-                                methodConstraint.setEmptyRoleSemantic(EmptyRoleSemanticType.valueOf(httpMethodConstraintERSValue.asEnum()));
-                            }
-                            AnnotationValue httpMethodConstraintTGValue = httpMethodConstraint.value("transportGuarantee");
-                            if (httpMethodConstraintTGValue != null) {
-                                methodConstraint.setTransportGuarantee(TransportGuaranteeType.valueOf(httpMethodConstraintTGValue.asEnum()));
-                            }
-                            AnnotationValue rolesAllowedValue = httpMethodConstraint.value("rolesAllowed");
-                            rolesAllowed = new ArrayList<String>();
-                            if (rolesAllowedValue != null) {
-                                for (String role : rolesAllowedValue.asStringArray()) {
-                                    rolesAllowed.add(role);
-                                }
-                            }
-                            methodConstraint.setRolesAllowed(rolesAllowed);
-                            methodConstraints.add(methodConstraint);
-                        }
-                        servletSecurity.setHttpMethodConstraints(methodConstraints);
-                    }
-                }
-                annotationMD.setServletSecurity(servletSecurity);
-            }
-        }
-        */
-        return sipMetaData;
+        return sipAnnotationMetaData;
     }
 
     protected Descriptions getDescription(String description) {
@@ -659,6 +310,125 @@ public class SipAnnotationDeploymentProcessor implements DeploymentUnitProcessor
         }
         return dg;
     }
+
+    private static SipApplication getApplicationAnnotation(Package pack) {
+        if(pack == null) return null;
+        SipApplication sipApp = (SipApplication) pack.getAnnotation(SipApplication.class);
+        if(sipApp != null) {
+            return sipApp;
+        }
+        return null;
+    }
+
+    private void parseSipApplication(SipMetaData sipMetaData, AnnotationInstance sipAppAnnInstance, String packageName) throws DeploymentUnitProcessingException {
+        String description = null;
+        String displayName = null;
+        String largeIcon = null;
+        String smallIcon = null;
+
+        for (AnnotationValue value: sipAppAnnInstance.values()) {
+            // application name
+            if (value.name().compareTo("name") == 0) {
+                if (sipMetaData.getApplicationName() == null) {
+                    sipMetaData.setApplicationName(value.asString());
+                }
+                else if ((sipMetaData.getApplicationName() != null) && (sipMetaData.getApplicationName().compareTo(value.asString()) != 0)) {
+                    throw (new DeploymentUnitProcessingException("Sip Application Name mismatch! Already defined: " + sipMetaData.getApplicationName() + " - from @SipAnnotation (package " + packageName + "): " + value.asString()));
+                }
+            }
+            // description
+            else if (value.name().compareTo("description") == 0) {
+                DescriptionImpl di = new DescriptionImpl();
+                di.setDescription(value.asString());
+                getOrCreateDs(getOrCreateDG(sipMetaData)).add(di);
+            }
+            // display name
+            else if (value.name().compareTo("displayName") == 0) {
+                DisplayNameImpl dn = new DisplayNameImpl();
+                dn.setDisplayName(value.asString());
+                getOrCreateDn(getOrCreateDG(sipMetaData)).add(dn);
+            }
+            // distributable
+            else if (value.name().compareTo("distributable") == 0) {
+                throw (new DeploymentUnitProcessingException("Distributable not supported yet"));
+                // sipMetaData.setDistributable(new EmptyMetaData());
+            }
+            // large icon
+            else if (value.name().compareTo("largeIcon") == 0) {
+                largeIcon = value.asString();
+            }
+            // small icon
+            else if (value.name().compareTo("smallIcon") == 0) {
+                smallIcon = value.asString();
+            }
+            else if (value.name().compareTo("mainServlet") == 0) {
+                if (sipMetaData.getServletSelection() == null) {
+                    sipMetaData.setServletSelection(new SipServletSelectionMetaData());
+                }
+                sipMetaData.getServletSelection().setMainServlet(value.asString());
+            }
+            else if (value.name().compareTo("proxyTimeout") == 0) {
+                if(sipMetaData.getProxyConfig() == null) {
+                    sipMetaData.setProxyConfig(new ProxyConfigMetaData());
+                }
+                sipMetaData.getProxyConfig().setProxyTimeout(value.asInt());
+            }
+            else if (value.name().compareTo("sessionTimeout") == 0) {
+                if(sipMetaData.getSessionConfig() == null) {
+                    sipMetaData.setSessionConfig(new SessionConfigMetaData());
+                }
+                sipMetaData.getSessionConfig().setSessionTimeout(value.asInt());
+            }
+        }
+        if (smallIcon != null || largeIcon != null) {
+            IconImpl icon = new IconImpl();
+            if (smallIcon != null)
+                icon.setSmallIcon(smallIcon);
+            if (largeIcon != null)
+                icon.setLargeIcon(largeIcon);
+            getOrCreateIs(getOrCreateDG(sipMetaData)).add(icon);
+        }
+        if (sipMetaData.getApplicationName() == null) {
+            sipMetaData.setApplicationName(packageName);
+        }
+    }
+
+    private static DescriptionGroupMetaData getOrCreateDG(SipMetaData sipMetaData) {
+        DescriptionGroupMetaData dg = sipMetaData.getDescriptionGroup();
+        if (dg == null) {
+            dg = new DescriptionGroupMetaData();
+            sipMetaData.setDescriptionGroup(dg);
+        }
+        return dg;
+    }
+
+    private static DescriptionsImpl getOrCreateDs(DescriptionGroupMetaData dg) {
+        DescriptionsImpl ds = (DescriptionsImpl) dg.getDescriptions();
+        if (ds == null) {
+            ds = new DescriptionsImpl();
+            dg.setDescriptions(ds);
+        }
+        return ds;
+    }
+
+    private static DisplayNamesImpl getOrCreateDn(DescriptionGroupMetaData dg) {
+        DisplayNamesImpl dn = (DisplayNamesImpl) dg.getDisplayNames();
+        if (dn == null) {
+            dn = new DisplayNamesImpl();
+            dg.setDisplayNames(dn);
+        }
+        return dn;
+    }
+
+    private static IconsImpl getOrCreateIs(DescriptionGroupMetaData dg) {
+        IconsImpl ii = (IconsImpl) dg.getIcons();
+        if (ii == null) {
+            ii = new IconsImpl();
+            dg.setIcons(ii);
+        }
+        return ii;
+    }
+
 
     static final String SIP_XML = "WEB-INF/sip.xml";
 

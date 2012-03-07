@@ -36,9 +36,9 @@ import org.jboss.as.server.deployment.DeploymentUnit;
 import org.jboss.as.server.deployment.DeploymentUnitProcessingException;
 import org.jboss.as.server.deployment.DeploymentUnitProcessor;
 import org.jboss.metadata.parser.util.MetaDataElementParser;
-import org.jboss.metadata.sip.parser.SipMetaDataParser;
-import org.jboss.metadata.sip.spec.SipMetaData;
 import org.jboss.vfs.VirtualFile;
+import org.mobicents.metadata.sip.parser.SipMetaDataParser;
+import org.mobicents.metadata.sip.spec.SipMetaData;
 
 /**
  * @author Jean-Frederic Clere
@@ -48,7 +48,7 @@ import org.jboss.vfs.VirtualFile;
 public class SipParsingDeploymentProcessor implements DeploymentUnitProcessor {
 
     protected static final String SIP_XML = "WEB-INF/sip.xml";
-    private final boolean schemaValidation = true;;
+    private final boolean schemaValidation = true;
 
     public SipParsingDeploymentProcessor() {
         // TODO: josemrecio - is this needed?
